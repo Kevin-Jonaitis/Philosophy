@@ -193,6 +193,9 @@ public class Philosophy {
     }
 
     private void printStats() {
+        if (topicNameToVisitedTopic.isEmpty()) {
+            return;
+        }
         PriorityQueue<VisitedTopic> queue = new PriorityQueue<>(topicNameToVisitedTopic.size(), new StepsComparator());
         for (Map.Entry<String, Integer> entry : topicNameToVisitedTopic.entrySet()) {
             queue.add(new VisitedTopic(entry.getKey(), entry.getValue()));
