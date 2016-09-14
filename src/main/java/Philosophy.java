@@ -43,52 +43,6 @@ public class Philosophy {
         }
     }
 
-    private void printStats() {
-        PriorityQueue<VisitedTopic> queue = new PriorityQueue<>(topicNameToVisitedTopic.size(), new StepsComparator());
-        for (Map.Entry<String, Integer> entry : topicNameToVisitedTopic.entrySet()) {
-            queue.add(new VisitedTopic(entry.getKey(), entry.getValue()));
-        }
-        while (!queue.isEmpty()) {
-            VisitedTopic visitedTopic = queue.remove();
-            System.out.println("Topic: \"" + visitedTopic.topic + "\"; steps to Philosophy: " + visitedTopic.stepsToPhilosophy);
-        }
-    }
-
-
-    /**
-     * An object containing a topic name, the number of times that topic has been hit, and the number of steps
-     * from that topic to philosophy
-     */
-    public class VisitedTopic {
-        final String topic;
-        int stepsToPhilosophy;
-        public VisitedTopic(String topic, int stepsToPhilosophy) {
-            this.topic = topic;
-            this.stepsToPhilosophy = stepsToPhilosophy;
-        }
-    }
-
-    public class StepsComparator implements Comparator<VisitedTopic>
-    {
-        @Override
-        public int compare(VisitedTopic x, VisitedTopic y)
-        {
-            // Assume neither string is null. Real code should
-            // probably be more robust
-            // You could also just return x.length() - y.length(),
-            // which would be more efficient.
-            if (x.stepsToPhilosophy < y.stepsToPhilosophy) {
-                return -1;
-            } else if (x.stepsToPhilosophy > y.stepsToPhilosophy) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
-    }
-
-
-
     private void search(boolean debug, String startingWord) {
         int clicks;
         String topic = startingWord;
@@ -236,6 +190,49 @@ public class Philosophy {
             }
         }
         throw new NoLinkFoundException();
+    }
+
+    private void printStats() {
+        PriorityQueue<VisitedTopic> queue = new PriorityQueue<>(topicNameToVisitedTopic.size(), new StepsComparator());
+        for (Map.Entry<String, Integer> entry : topicNameToVisitedTopic.entrySet()) {
+            queue.add(new VisitedTopic(entry.getKey(), entry.getValue()));
+        }
+        while (!queue.isEmpty()) {
+            VisitedTopic visitedTopic = queue.remove();
+            System.out.println("Topic: \"" + visitedTopic.topic + "\"; steps to Philosophy: " + visitedTopic.stepsToPhilosophy);
+        }
+    }
+
+    /**
+     * An object containing a topic name, the number of times that topic has been hit, and the number of steps
+     * from that topic to philosophy
+     */
+    public class VisitedTopic {
+        final String topic;
+        int stepsToPhilosophy;
+        public VisitedTopic(String topic, int stepsToPhilosophy) {
+            this.topic = topic;
+            this.stepsToPhilosophy = stepsToPhilosophy;
+        }
+    }
+
+    public class StepsComparator implements Comparator<VisitedTopic>
+    {
+        @Override
+        public int compare(VisitedTopic x, VisitedTopic y)
+        {
+            // Assume neither string is null. Real code should
+            // probably be more robust
+            // You could also just return x.length() - y.length(),
+            // which would be more efficient.
+            if (x.stepsToPhilosophy < y.stepsToPhilosophy) {
+                return -1;
+            } else if (x.stepsToPhilosophy > y.stepsToPhilosophy) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
     }
 
     public class TopicNotFoundException extends Exception {
