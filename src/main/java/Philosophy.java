@@ -7,30 +7,147 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.util.*;
 
 /**
  * Created by Kevin on 9/7/2016.
  */
 public class Philosophy {
 
-    public static void main(String[] args) throws IOException {
-        // We should fix "New York Times"
-        new Philosophy("Lyne_Viaduct"); //theoretical physicist produces a loop
+    private static HashMap<String, Integer> topicNameToVisitedTopic = new HashMap<>();
+
+    public static void main(String[] args) {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        Philosophy philosophy = new Philosophy();
+        while(true) {
+            System.out.println("Please enter a word to search for. Enter 1 to run while printing out steps. Enter 2 for stats. Enter 3 to quit.");
+            try {
+                String input = br.readLine();
+                switch(input) {
+                    case "1":
+                        String inputWord = br.readLine();
+                        philosophy.search(true, inputWord);
+                        break;
+                    case "2":
+                        philosophy.printStats();
+                        break;
+                    case "3":
+                        System.exit(0);
+                    default:
+                        philosophy.search(false, input);
+                }
+            } catch (IOException e) {
+                System.err.println("There was a problem reading stdin. Please try again");
+            }
+            System.out.println();
+        }
     }
 
-    public Philosophy(String startingWord) throws IOException {
+    private void printStats() {
+        PriorityQueue<VisitedTopic> queue = new PriorityQueue<>(topicNameToVisitedTopic.size(), new StepsComparator());
+        for (Map.Entry<String, Integer> entry : topicNameToVisitedTopic.entrySet()) {
+            queue.add(new VisitedTopic(entry.getKey(), entry.getValue()));
+        }
+        while (!queue.isEmpty()) {
+            VisitedTopic visitedTopic = queue.remove();
+            System.out.println("Topic: \"" + visitedTopic.topic + "\"; steps to Philosophy: " + visitedTopic.stepsToPhilosophy);
+        }
+    }
+
+
+    /**
+     * An object containing a topic name, the number of times that topic has been hit, and the number of steps
+     * from that topic to philosophy
+     */
+    public class VisitedTopic {
+        final String topic;
+        int stepsToPhilosophy;
+        public VisitedTopic(String topic, int stepsToPhilosophy) {
+            this.topic = topic;
+            this.stepsToPhilosophy = stepsToPhilosophy;
+        }
+    }
+
+    public class StepsComparator implements Comparator<VisitedTopic>
+    {
+        @Override
+        public int compare(VisitedTopic x, VisitedTopic y)
+        {
+            // Assume neither string is null. Real code should
+            // probably be more robust
+            // You could also just return x.length() - y.length(),
+            // which would be more efficient.
+            if (x.stepsToPhilosophy < y.stepsToPhilosophy) {
+                return -1;
+            } else if (x.stepsToPhilosophy > y.stepsToPhilosophy) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    }
+
+
+
+    private void search(boolean debug, String startingWord) {
+        int clicks;
         String topic = startingWord;
-        System.out.println(topic);
+        LinkedHashSet<String> linkedHashSet = new LinkedHashSet<>();
         while (!topic.toLowerCase().equals("Philosophy".toLowerCase())) {
-            topic = parseFirstLink(fetchWikiTextFromTopic(topic));
-            System.out.println(topic);
+            if (debug) {
+                System.out.println(topic);
+            } else {
+                // Cache check
+                if (topicNameToVisitedTopic.get(topic) != null) {
+                    addSearchToMap(linkedHashSet, topicNameToVisitedTopic.get(topic));
+                    clicks = topicNameToVisitedTopic.get(topic) + linkedHashSet.size();
+                    System.out.println(clicks + " clicks to get to Philosophy");
+                    return;
+                }
+            }
+            if (linkedHashSet.contains(topic.toLowerCase())) {
+                System.out.println("We found a loop! Stopping.");
+                return;
+            } else {
+                linkedHashSet.add(topic.toLowerCase());
+            }
+            try {
+                String wikiText = fetchWikiTextFromTopic(topic);
+                topic = parseFirstLink(wikiText);
+            } catch (IOException e) {
+                System.err.println("There was a problem parsing the following topic from wikipedia: " + topic);
+                return;
+            } catch (TopicNotFoundException | NoLinkFoundException e) {
+                System.err.println(e.getMessage());
+                return;
+            }
+        }
+
+        System.out.println("Philosophy");
+        linkedHashSet.add("Philosophy");
+        addSearchToMap(linkedHashSet, 0);
+        clicks = topicNameToVisitedTopic.get(startingWord);
+        System.out.println(clicks + " clicks to get to Philosophy");
+    }
+
+    /**
+     * This method takes a linked-list of topics on the way to philosophy, and adds them to a map of items
+     * that contain how many steps it is from that item to philosophy.
+     * If we already found Philosophy from the cache, then the offset is how many steps it is to Philosophy from the
+     * most recent item in the LinkedSet.
+     */
+    private void addSearchToMap(LinkedHashSet<String> linkedHashSet, int offset) {
+        int stepsToPhilosophy = linkedHashSet.size() - 1 + offset;
+        for(String topic : linkedHashSet) {
+            topicNameToVisitedTopic.put(topic, stepsToPhilosophy);
+            stepsToPhilosophy--;
         }
     }
 
     /**
      * Given a topic, connect to the wikipedia page for that topic, and return the wikitext
      */
-    public String fetchWikiTextFromTopic(String topic) throws IOException {
+    public String fetchWikiTextFromTopic(String topic) throws TopicNotFoundException, IOException {
         String link = "https://en.wikipedia.org/w/api.php?action=parse&page=" +
                 URLEncoder.encode(topic, "UTF-8") +
                 "&prop=wikitext&format=json";
@@ -50,23 +167,25 @@ public class Philosophy {
         String result = buffer.toString();
 
         JSONObject obj = new JSONObject(result);
+
+        if (obj.has("error")) {
+            throw new TopicNotFoundException(topic);
+        }
         String text = obj.getJSONObject("parse").getJSONObject("wikitext").get("*").toString();
 
         return text;
-
-
     }
 
     /**
      * This method parses the first link on the page. It skips anything that's in {{}}
-     * (which I don't consider the "main text" things in {{}} are usually those boxes you find on the side of the page),
+     * (which I don't consider in the "main text"; things in {{}} are usually those boxes you find on the side of the page),
      * or anything in italics(denoted with '' '' ). It'll also skip anything in a <ref> tag.
      * These requirements are taken from https://en.wikipedia.org/wiki/Wikipedia:Getting_to_Philosophy#Method_summarized
      *
      * @param wikiText The wiki-formatted text for the page
      * @return the "name" of the first link.
      */
-    private String parseFirstLink(String wikiText) {
+    private String parseFirstLink(String wikiText) throws NoLinkFoundException {
         wikiText = wikiText.replaceAll("<!--(.*?)-->", ""); // Delete all html comments
 
         String linkName;
@@ -97,7 +216,7 @@ public class Philosophy {
                     i++;
                 }
 
-                // We can't be having the link-name be file.
+                // We can't be having the link-name be file or image
                 if (linkName.startsWith("File") || linkName.startsWith("Image")) {
                     continue;
                 }
@@ -116,6 +235,20 @@ public class Philosophy {
                 }
             }
         }
-        return null;
+        throw new NoLinkFoundException();
+    }
+
+    public class TopicNotFoundException extends Exception {
+
+        TopicNotFoundException(String topic) {
+            super("The topic \"" + topic + "\" was not found!");
+        }
+    }
+
+    public class NoLinkFoundException extends Exception {
+
+        public NoLinkFoundException() {
+            super("There were no links found on this page!");
+        }
     }
 }
